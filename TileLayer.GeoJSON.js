@@ -144,7 +144,7 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
             this._map.addLayer(this._clipPathRectangles[clipPathId]);
 
             // Add a clip path element to the SVG defs element
-            // With a path element that has the hidden rectangle's SVG path string  
+            // With a path element that has the hidden rectangle's SVG path string
             var path = document.createElementNS(L.Path.SVG_NS, 'path');
             var pathString = this._clipPathRectangles[clipPathId].getPathString();
             path.setAttribute('d', pathString);
@@ -162,7 +162,7 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
     // * If the options.unique function is specified, merge geometries into GeometryCollections
     // grouped by the key returned by options.unique(feature) for each GeoJSON feature
     // * If options.clipTiles is set, and the browser is using SVG, perform SVG clipping on each
-    // tile's GeometryCollection 
+    // tile's GeometryCollection
     addTileData: function (geojson, tilePoint) {
         var features = L.Util.isArray(geojson) ? geojson : geojson.features,
             i, len, feature;
@@ -181,22 +181,30 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
         var options = this.geojsonLayer.options;
 
         if (options.filter && !options.filter(geojson)) { return; }
-
         var parentLayer = this.geojsonLayer;
         var incomingLayer = null;
+        var nestedLayer = null;
         if (this.options.unique && typeof(this.options.unique) === 'function') {
             var key = this.options.unique(geojson);
 
             // When creating the layer for a unique key,
             // Force the geojson to be a geometry collection
-            if (!(key in this._keyLayers && geojson.geometry.type !== 'GeometryCollection')) {
-                geojson.geometry = {
-                    type: 'GeometryCollection',
-                    geometries: [geojson.geometry]
-                };
-            }
+            //if (!(key in this._keyLayers && geojson.geometry.type !== 'GeometryCollection')) {
+            //    geojson.geometry = {
+            //        type: 'GeometryCollection',
+            //        geometries: [geojson.geometry]
+            //    };
+            //}
 
             // Transform the geojson into a new Layer
+            // Add the incoming Layer to existing key's GeometryCollection
+            if (key in this._keyLayers) {
+                nestedLayer = this._keyLayers[key];
+                parentLayer.removeLayer(nestedLayer);
+                for(var i=0;i<nestedLayer.feature.geometry.coordinates.length;i++){
+                    geojson.geometry.coordinates.push(nestedLayer.feature.geometry.coordinates[i])
+                }
+           
             try {
                 incomingLayer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng);
             }
@@ -204,15 +212,21 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
             catch (e) {
                 return this;
             }
-
-            incomingLayer.feature = L.GeoJSON.asFeature(geojson);
-            // Add the incoming Layer to existing key's GeometryCollection
-            if (key in this._keyLayers) {
-                parentLayer = this._keyLayers[key];
-                parentLayer.feature.geometry.geometries.push(geojson.geometry);
-            }
+            
+            incomingLayer.feature = L.GeoJSON.asFeature(geojson);            
             // Convert the incoming GeoJSON feature into a new GeometryCollection layer
-            else {
+            this._keyLayers[key] = incomingLayer;
+            } else {
+                
+                try {
+                    incomingLayer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng);
+                }
+                // Ignore GeoJSON objects that could not be parsed
+                catch (e) {
+                    return this;
+                }
+                
+                incomingLayer.feature = L.GeoJSON.asFeature(geojson);                  
                 this._keyLayers[key] = incomingLayer;
             }
         }
@@ -231,10 +245,11 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
         incomingLayer.defaultOptions = incomingLayer.options;
 
         this.geojsonLayer.resetStyle(incomingLayer);
-
+        
         if (options.onEachFeature) {
             options.onEachFeature(geojson, incomingLayer);
         }
+
         parentLayer.addLayer(incomingLayer);
 
         // If options.clipTiles is set and the browser is using SVG
