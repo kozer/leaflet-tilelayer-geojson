@@ -14,6 +14,9 @@ L.TileLayer.Ajax = L.TileLayer.extend({
             }
             var s = req.status;
             if ((s >= 200 && s < 300) || s === 304) {
+                if(!req.responseText){
+                    return
+                }
                 tile.datum = JSON.parse(req.responseText);
                 layer._tileLoaded(tile, tilePoint);
             } else {
@@ -204,7 +207,7 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
                 for(var i=0;i<nestedLayer.feature.geometry.coordinates.length;i++){
                     geojson.geometry.coordinates.push(nestedLayer.feature.geometry.coordinates[i])
                 }
-           
+
             try {
                 incomingLayer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng);
             }
@@ -212,12 +215,12 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
             catch (e) {
                 return this;
             }
-            
-            incomingLayer.feature = L.GeoJSON.asFeature(geojson);            
+
+            incomingLayer.feature = L.GeoJSON.asFeature(geojson);
             // Convert the incoming GeoJSON feature into a new GeometryCollection layer
             this._keyLayers[key] = incomingLayer;
             } else {
-                
+
                 try {
                     incomingLayer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng);
                 }
@@ -225,8 +228,8 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
                 catch (e) {
                     return this;
                 }
-                
-                incomingLayer.feature = L.GeoJSON.asFeature(geojson);                  
+
+                incomingLayer.feature = L.GeoJSON.asFeature(geojson);
                 this._keyLayers[key] = incomingLayer;
             }
         }
@@ -245,7 +248,7 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
         incomingLayer.defaultOptions = incomingLayer.options;
 
         this.geojsonLayer.resetStyle(incomingLayer);
-        
+
         if (options.onEachFeature) {
             options.onEachFeature(geojson, incomingLayer);
         }
