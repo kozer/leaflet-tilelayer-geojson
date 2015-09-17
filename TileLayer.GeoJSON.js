@@ -2,7 +2,10 @@
 L.TileLayer.Ajax = L.TileLayer.extend({
     _requests: [],
     _addTile: function (tilePoint) {
-        var tile = { datum: null, processed: false };
+        var tile = {
+            datum: null,
+            processed: false
+        };
         this._tiles[tilePoint.x + ':' + tilePoint.y] = tile;
         this._loadTile(tile, tilePoint);
     },
@@ -14,7 +17,7 @@ L.TileLayer.Ajax = L.TileLayer.extend({
             }
             var s = req.status;
             if ((s >= 200 && s < 300) || s === 304) {
-                if(!req.responseText){
+                if (!req.responseText) {
                     return
                 }
                 tile.datum = JSON.parse(req.responseText);
@@ -42,8 +45,12 @@ L.TileLayer.Ajax = L.TileLayer.extend({
         this._requests = [];
     },
     _update: function () {
-        if (this._map && this._map._panTransition && this._map._panTransition._inProgress) { return; }
-        if (this._tilesToLoad < 0) { this._tilesToLoad = 0; }
+        if (this._map && this._map._panTransition && this._map._panTransition._inProgress) {
+            return;
+        }
+        if (this._tilesToLoad < 0) {
+            this._tilesToLoad = 0;
+        }
         L.TileLayer.prototype._update.apply(this, arguments);
     }
 });
@@ -77,7 +84,7 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
     },
 
     // Remove clip path elements from other earlier zoom levels
-    _removeOldClipPaths: function  () {
+    _removeOldClipPaths: function () {
         for (var clipPathId in this._clipPathRectangles) {
             var clipPathZXY = clipPathId.split('_').slice(1);
             var zoom = parseInt(clipPathZXY[0], 10);
@@ -97,8 +104,7 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
     _recurseLayerUntilPath: function (func, layer) {
         if (layer instanceof L.Path) {
             func(layer);
-        }
-        else if (layer instanceof L.LayerGroup) {
+        } else if (layer instanceof L.LayerGroup) {
             // Recurse each child layer
             layer.getLayers().forEach(this._recurseLayerUntilPath.bind(this, func), this);
         }
@@ -106,8 +112,12 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
 
     _clipLayerToTileBoundary: function (layer, tilePoint) {
         // Only perform SVG clipping if the browser is using SVG
-        if (!L.Path.SVG) { return; }
-        if (!this._map) { return; }
+        if (!L.Path.SVG) {
+            return;
+        }
+        if (!this._map) {
+            return;
+        }
 
         if (!this._map._pathRoot) {
             this._map._pathRoot = L.Path.prototype._createElement('svg');
@@ -120,8 +130,7 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
         if (svg.getElementsByTagName('defs').length === 0) {
             defs = document.createElementNS(L.Path.SVG_NS, 'defs');
             svg.insertBefore(defs, svg.firstChild);
-        }
-        else {
+        } else {
             defs = svg.getElementsByTagName('defs')[0];
         }
 
@@ -134,10 +143,10 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
 
             // Create a hidden L.Rectangle to represent the tile's area
             var tileSize = this.options.tileSize,
-            nwPoint = tilePoint.multiplyBy(tileSize),
-            sePoint = nwPoint.add([tileSize, tileSize]),
-            nw = this._map.unproject(nwPoint),
-            se = this._map.unproject(sePoint);
+                nwPoint = tilePoint.multiplyBy(tileSize),
+                sePoint = nwPoint.add([tileSize, tileSize]),
+                nw = this._map.unproject(nwPoint),
+                se = this._map.unproject(sePoint);
             this._clipPathRectangles[clipPathId] = new L.Rectangle(new L.LatLngBounds([nw, se]), {
                 opacity: 0,
                 fillOpacity: 0,
@@ -183,31 +192,27 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
 
         var options = this.geojsonLayer.options;
 
-        if (options.filter && !options.filter(geojson)) { return; }
+        if (options.filter && !options.filter(geojson)) {
+            return;
+        }
         var parentLayer = this.geojsonLayer;
         var incomingLayer = null;
         var nestedLayer = null;
-        if (this.options.unique && typeof(this.options.unique) === 'function') {
+        if (this.options.unique && typeof (this.options.unique) === 'function') {
             var key = this.options.unique(geojson);
 
-            // When creating the layer for a unique key,
-            // Force the geojson to be a geometry collection
-            //if (!(key in this._keyLayers && geojson.geometry.type !== 'GeometryCollection')) {
-            //    geojson.geometry = {
-            //        type: 'GeometryCollection',
-            //        geometries: [geojson.geometry]
-            //    };
-            //}
-
-            // Transform the geojson into a new Layer
-            // Add the incoming Layer to existing key's GeometryCollection
+            // Add the new coordinates to layer (it is a tile and has been splited)
+            // remove old layer.
+            // this dont create a nested layer, but create a single layer as it should be.
             if (key in this._keyLayers) {
                 nestedLayer = this._keyLayers[key];
                 parentLayer.removeLayer(nestedLayer);
-                for(var i=0;i<nestedLayer.feature.geometry.coordinates.length;i++){
+                for (var i = 0; i < nestedLayer.feature.geometry.coordinates.length; i++) {
                     geojson.geometry.coordinates.push(nestedLayer.feature.geometry.coordinates[i])
                 }
 
+            }
+            // Transform the geojson into a new Layer
             try {
                 incomingLayer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng);
             }
@@ -216,22 +221,10 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
                 return this;
             }
 
+            // Convert the incoming GeoJSON feature into a new layer
             incomingLayer.feature = L.GeoJSON.asFeature(geojson);
-            // Convert the incoming GeoJSON feature into a new GeometryCollection layer
             this._keyLayers[key] = incomingLayer;
-            } else {
 
-                try {
-                    incomingLayer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng);
-                }
-                // Ignore GeoJSON objects that could not be parsed
-                catch (e) {
-                    return this;
-                }
-
-                incomingLayer.feature = L.GeoJSON.asFeature(geojson);
-                this._keyLayers[key] = incomingLayer;
-            }
         }
         // Add the incoming geojson feature to the L.GeoJSON Layer
         else {
@@ -265,7 +258,9 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
 
     _tileLoaded: function (tile, tilePoint) {
         L.TileLayer.Ajax.prototype._tileLoaded.apply(this, arguments);
-        if (tile.datum === null) { return null; }
+        if (tile.datum === null) {
+            return null;
+        }
         this.addTileData(tile.datum, tilePoint);
     }
 });
